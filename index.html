@@ -143,9 +143,9 @@
 <body>
     <h1>小人別跑</h1>
     <div class="character-select">
-        <img src="character1.png" class="character-option selected" data-character="1" alt="角色1">
-        <img src="character2.png" class="character-option" data-character="2" alt="角色2">
-        <img src="character3.png" class="character-option" data-character="3" alt="角色3">
+        <img src="./character1.png" class="character-option selected" data-character="1" alt="角色1">
+        <img src="./character2.png" class="character-option" data-character="2" alt="角色2">
+        <img src="./character3.png" class="character-option" data-character="3" alt="角色3">
     </div>
     <div id="uploadSection">
         <input type="file" id="photoUpload" accept="image/*">
@@ -156,7 +156,7 @@
             <div id="timer">30s</div>
             <div id="scoreBoard">
                 <span id="score">0</span>
-                <img src="spatula.png" class="spatula" style="display: none;" alt="鍋鏟">
+                <img src="./spatula.png" class="spatula" style="display: none;" alt="鍋鏟">
             </div>
         </div>
         <canvas id="gameCanvas" width="600" height="400"></canvas>
@@ -166,7 +166,7 @@
         </div>
     </div>
 
-    <audio id="hitSound" src="ouch.mp3"></audio>
+    <audio id="hitSound" src="./assets/sounds/ouch.mp3"></audio>
 
     <script>
         let score = 0;
