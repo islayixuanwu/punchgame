@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出氣玩偶遊戲</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        #gameContainer {
+            position: relative;
+            margin: 20px;
+        }
+        #gameCanvas {
+            border: 2px solid #333;
+            background-color: white;
+        }
+        #scoreBoard {
+            font-size: 24px;
+            margin: 10px;
+        }
+        #timer {
+            font-size: 24px;
+            color: #ff4444;
+            margin: 10px;
+        }
+        #uploadSection {
+            margin: 20px;
+        }
+        .score-popup {
+            position: absolute;
+            color: #ffeb3b;
+            font-size: 20px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 0.5s ease-out;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+
+        #controls {
+            margin: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>出氣玩偶遊戲</h1>
+    <div id="uploadSection">
+        <input type="file" id="photoUpload" accept="image/*">
+        <button id="startGame">開始遊戲</button>
+    </div>
+    <div id="scoreBoard">分數: <span id="score">0</span></div>
+    <div id="timer">時間: <span id="timeLeft">30</span>秒</div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+    </div>
+    <div id="controls">
+        <button id="pauseGame">暫停</button>
+        <button id="resetGame">重新開始</button>
+    </div>
+    <audio id="coinSound" src="https://www.soundjay.com/human/sounds/ouch-1.mp3"></audio>
+
+    <script>
+        let score = 0;
+        let timeLeft = 30;
+        let gameInterval;
+        let characterX = 300;
+        let characterY = 200;
+        let characterSpeedX = 3;
+        let characterSpeedY = 3;
+        let isGameRunning = false;
+        let characterImage = null;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const timeElement = document.getElementById('timeLeft');
+        const startButton = document.getElementById('startGame');
+        const photoUpload = document.getElementById('photoUpload');
+
+        photoUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        characterImage = img;
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        let isPaused = false;
+        let gameLoopInterval;
+        let lastHitTime = 0;
+        const hitCooldown = 300; // 0.3秒冷卻時間
+
+        // 火柴人繪製函數
+        function drawStickman(x, y) {
+            if (!characterImage) return;
+            
+            ctx.save();
+            
+            // 繪製身體（火柴人）
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            
+            // 創建圓形裁剪區域（頭部）
+            ctx.beginPath();
+            ctx.arc(x + 30, y + 30, 30, 0, Math.PI * 2);
+            ctx.clip();
+            
+            // 頭（使用上傳的照片，放大2倍）
+            ctx.drawImage(characterImage, x, y, 60, 60);
+            
+            ctx.restore();
+            
+            ctx.beginPath();
+            
+            // 身體（縮短25%）
+            ctx.moveTo(x + 30, y + 60);
+            ctx.lineTo(x + 30, y + 75); // 原來是90，現在是75
+            ctx.stroke();
+            
+            // 手臂
+            ctx.beginPath();
+            ctx.moveTo(x + 15, y + 65);
+            ctx.lineTo(x + 45, y + 65);
+            ctx.stroke();
+            
+            // 腿
+            ctx.beginPath();
+            ctx.moveTo(x + 30, y + 75);
+            ctx.lineTo(x + 15, y + 90);
+            ctx.moveTo(x + 30, y + 75);
+            ctx.lineTo(x + 45, y + 90);
+            ctx.stroke();
+        }
+
+        // 更新角色位置
+        function updateCharacter() {
+            if (Math.random() < 0.05) { // 5%機率改變方向
+                characterSpeedX = (Math.random() - 0.5) * 8;
+                characterSpeedY = (Math.random() - 0.5) * 8;
+            }
+            
+            characterX += characterSpeedX;
+            characterY += characterSpeedY;
+
+            // 邊界檢查
+            if (characterX <= 0 || characterX >= canvas.width - 50) {
+                characterSpeedX = -characterSpeedX;
+                characterX = Math.max(0, Math.min(canvas.width - 50, characterX));
+            }
+            if (characterY <= 0 || characterY >= canvas.height - 50) {
+                characterSpeedY = -characterSpeedY;
+                characterY = Math.max(0, Math.min(canvas.height - 50, characterY));
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawStickman(characterX, characterY);
+        }
+
+        function createScorePopup(x, y) {
+            const popup = document.createElement('div');
+            popup.className = 'score-popup';
+            popup.textContent = 'Get +1';
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y}px`;
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                document.body.removeChild(popup);
+            }, 500);
+        }
+
+        function gameLoop() {
+            if (!isPaused && isGameRunning) {
+                updateCharacter();
+                draw();
+            }
+        }
+
+        // 更新碰撞檢測的範圍
+        canvas.addEventListener('click', function(e) {
+            if (!isGameRunning || isPaused) return;
+            
+            const currentTime = Date.now();
+            if (currentTime - lastHitTime < hitCooldown) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // 調整點擊檢測範圍以匹配新的人物大小
+            if (x >= characterX && x <= characterX + 60 &&
+                y >= characterY && y <= characterY + 90) {
+                score++;
+                scoreElement.textContent = score;
+                document.getElementById('coinSound').play();
+                createScorePopup(e.clientX, e.clientY);
+                lastHitTime = currentTime;
+                
+                // 凍結效果
+                const originalSpeedX = characterSpeedX;
+                const originalSpeedY = characterSpeedY;
+                characterSpeedX = 0;
+                characterSpeedY = 0;
+                setTimeout(() => {
+                    characterSpeedX = originalSpeedX;
+                    characterSpeedY = originalSpeedY;
+                }, hitCooldown);
+            }
+        });
+
+        // 暫停按鈕
+        document.getElementById('pauseGame').addEventListener('click', function() {
+            if (isGameRunning) {
+                isPaused = !isPaused;
+                this.textContent = isPaused ? '繼續' : '暫停';
+            }
+        });
+
+        // 重新開始按鈕
+        document.getElementById('resetGame').addEventListener('click', function() {
+            location.reload();
+        });
+
+        startButton.addEventListener('click', function() {
+            if (!characterImage) {
+                alert('請先上傳照片！');
+                return;
+            }
+            if (!isGameRunning) {
+                isGameRunning = true;
+                isPaused = false;
+                score = 0;
+                timeLeft = 30;
+                scoreElement.textContent = score;
+                timeElement.textContent = timeLeft;
+                document.getElementById('pauseGame').textContent = '暫停';
+
+                clearInterval(gameInterval);
+                clearInterval(gameLoopInterval);
+
+                gameInterval = setInterval(() => {
+                    if (!isPaused) {
+                        timeLeft--;
+                        timeElement.textContent = timeLeft;
+                        if (timeLeft <= 0) {
+                            clearInterval(gameInterval);
+                            clearInterval(gameLoopInterval);
+                            isGameRunning = false;
+                            alert(`遊戲結束！\n最終得分：${score}`);
+                        }
+                    }
+                }, 1000);
+
+                gameLoopInterval = setInterval(gameLoop, 1000/60);
+            }
+        });
+    </script>
+</body>
+</html>
