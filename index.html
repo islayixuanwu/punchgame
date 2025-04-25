@@ -3,38 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>出氣玩偶遊戲</title>
+    <title>小人別跑</title>
     <style>
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
             font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            background: linear-gradient(180deg, #4169E1 0%, #87CEEB 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
         }
+        
+        h1 {
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .character-select {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .character-option {
+            width: 60px;
+            height: 100px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .character-option:hover {
+            opacity: 1;
+        }
+
+        .character-option.selected {
+            opacity: 1;
+            border: 2px solid #FFD700;
+        }
+
         #gameContainer {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
             position: relative;
             margin: 20px;
         }
+
         #gameCanvas {
             border: 2px solid #333;
             background-color: white;
         }
-        #scoreBoard {
-            font-size: 24px;
-            margin: 10px;
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 10px;
         }
+
         #timer {
             font-size: 24px;
-            color: #ff4444;
-            margin: 10px;
+            color: #333;
         }
+
+        #scoreBoard {
+            font-size: 24px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .spatula {
+            width: 24px;
+            height: 24px;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-15deg); }
+            75% { transform: rotate(15deg); }
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #resetGame {
+            background-color: #FFA07A;
+            color: white;
+        }
+
+        #pauseGame {
+            background-color: #87CEEB;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
         #uploadSection {
             margin: 20px;
+            text-align: center;
         }
+
         .score-popup {
             position: absolute;
-            color: #ffeb3b;
+            color: #FFD700;
             font-size: 20px;
             font-weight: bold;
             pointer-events: none;
@@ -46,35 +138,35 @@
             0% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(-50px); opacity: 0; }
         }
-
-        #controls {
-            margin: 10px;
-        }
-
-        button {
-            padding: 8px 16px;
-            margin: 0 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
-    <h1>出氣玩偶遊戲</h1>
+    <h1>小人別跑</h1>
+    <div class="character-select">
+        <img src="./character1.png" class="character-option selected" data-character="1" alt="角色1">
+        <img src="./character2.png" class="character-option" data-character="2" alt="角色2">
+        <img src="./character3.png" class="character-option" data-character="3" alt="角色3">
+    </div>
     <div id="uploadSection">
         <input type="file" id="photoUpload" accept="image/*">
         <button id="startGame">開始遊戲</button>
     </div>
-    <div id="scoreBoard">分數: <span id="score">0</span></div>
-    <div id="timer">時間: <span id="timeLeft">30</span>秒</div>
     <div id="gameContainer">
+        <div class="game-header">
+            <div id="timer">30s</div>
+            <div id="scoreBoard">
+                <span id="score">0</span>
+                <img src="./spatula.png" class="spatula" style="display: none;" alt="鍋鏟">
+            </div>
+        </div>
         <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <div class="game-controls">
+            <button id="resetGame">重新開始</button>
+            <button id="pauseGame">暫停</button>
+        </div>
     </div>
-    <div id="controls">
-        <button id="pauseGame">暫停</button>
-        <button id="resetGame">重新開始</button>
-    </div>
-    <audio id="coinSound" src="https://www.soundjay.com/human/sounds/ouch-1.mp3"></audio>
+
+    <audio id="hitSound" src="./assets/sounds/ouch.mp3"></audio>
 
     <script>
         let score = 0;
@@ -203,6 +295,32 @@
         }
 
         // 更新碰撞檢測的範圍
+        // 新增角色選擇功能
+        const characterOptions = document.querySelectorAll('.character-option');
+        let selectedCharacter = '1';
+
+        characterOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                characterOptions.forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                selectedCharacter = this.dataset.character;
+            });
+        });
+
+        // 更新分數顯示效果
+        function updateScore() {
+            score++;
+            scoreElement.textContent = score;
+            
+            // 鍋鏟動畫
+            const spatula = document.querySelector('.spatula');
+            spatula.style.display = 'inline';
+            spatula.style.animation = 'none';
+            spatula.offsetHeight; // 觸發重繪
+            spatula.style.animation = 'shake 0.5s ease-in-out';
+        }
+
+        // 更新點擊事件
         canvas.addEventListener('click', function(e) {
             if (!isGameRunning || isPaused) return;
             
@@ -213,16 +331,13 @@
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            // 調整點擊檢測範圍以匹配新的人物大小
             if (x >= characterX && x <= characterX + 60 &&
                 y >= characterY && y <= characterY + 90) {
-                score++;
-                scoreElement.textContent = score;
-                document.getElementById('coinSound').play();
+                updateScore();
+                document.getElementById('hitSound').play();
                 createScorePopup(e.clientX, e.clientY);
                 lastHitTime = currentTime;
                 
-                // 凍結效果
                 const originalSpeedX = characterSpeedX;
                 const originalSpeedY = characterSpeedY;
                 characterSpeedX = 0;
